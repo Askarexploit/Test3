@@ -1,0 +1,111 @@
+import logging
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+import random
+from datetime import time
+import pytz
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+TOKEN = "ВАШ_ТОКЕН_БОТА"
+
+# Расширенные списки ответов
+GENERAL_RESPONSES = [
+    "Расскажите подробнее о ваших чувствах.",
+    "Как это на вас влияет?",
+    "Что вы думаете сделать в этой ситуации?",
+    "Продолжайте, я вас слушаю.",
+    "Это интересно. Можете развить мысль?",
+    "Как вы пришли к этой мысли?",
+    "Что для вас значит это переживание?",
+]
+
+SUPPORT_RESPONSES = [
+    "Вы не одни в этом. Я здесь, чтобы выслушать.",
+    "Это должно быть тяжело. Как вы справляетесь?",
+    "Ваши чувства совершенно нормальны.",
+    "Давайте вместе подумаем, как улучшить ситуацию.",
+    "Иногда важно просто позволить себе чувствовать.",
+    "Вы делаете важный шаг, говоря об этом.",
+]
+
+HAPPY_RESPONSES = [
+    "Рад, что у вас все хорошо! Чем вы хотите поделиться?",
+    "Приятно слышать позитивные новости!",
+    "Отлично! Что способствует вашему хорошему настроению?",
+    "Здорово! Как вы добились такого результата?",
+    "Ваша радость заразительна! Расскажите подробнее.",
+]
+
+TIRED_RESPONSES = [
+    "Похоже, вам нужно немного отдыха. Что вам помогает расслабиться?",
+    "Усталость - естественная реакция. Как вы обычно восстанавливаете силы?",
+    "Важно находить время для себя. Что вас заряжает энергией?",
+    "Иногда стоит сделать паузу. Что вам нравится делать для отдыха?",
+]
+
+MOTIVATIONAL_RESPONSES = [
+    "Вы справитесь! Что вам нужно для первого шага?",
+    "Верю в ваши силы! Что кажется самым сложным?",
+    "Даже маленькие шаги ведут к большим изменениям.",
+    "Вы уже многое сделали, продолжайте в том же духе!",
+]
+
+user_chats = set()
+
+def start(update: Update, context: CallbackContext) -> None:
+    user = update.effective_user
+    user_chat_id = update.effective_chat.id
+    user_chats.add(user_chat_id)
+    
+    update.message.reply_text(
+        f"Привет {user.first_name}! Я ваш виртуальный собеседник.\n"
+        "Я буду проверять, как у вас дела каждый день в 10:00 (по МСК).\n"
+        "Вы всегда можете поделиться своими мыслями и чувствами.\n\n"
+        "Используйте /help для просмотра доступных команд."
+    )
+
+def help_command(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(
+        "Просто напишите мне сообщение, и я отвечу.\n"
+        "Примеры тем для разговора:\n"
+        "- Ваши текущие эмоции\n"
+        "- События дня\n"
+        "- Личные переживания\n\n"
+        "Ежедневно в 10:00 я буду интересоваться вашим состоянием.\n\n"
+        "Помните: это всего лишь бот-симулятор. "
+        "Для реальной помощи обратитесь к специалисту."
+    )
+
+def generate_response(text: str) -> str:
+    text_lower = text.lower()
+    
+    if any(word in text_lower for word in ["грустно", "одиноко", "тревожно", "страх", "боюсь"]):
+        return random.choice(SUPPORT_RESPONSES)
+    
+    if any(word in text_lower for word in ["рад", "счастлив", "хорошо", "отлично", "ура", "радостно"]):
+        return random.choice(HAPPY_RESPONSES)
+    
+    if any(word in text_lower for word in ["устал", "устала", "усталость", "нет сил"]):
+        return random.choice(TIRED_RESPONSES)
+    
+    if any(word in text_lower for word in ["мотивация", "лень", "не хочу", "сложно"]):
+        return random.choice(MOTIVATIONAL_RESPONSES)
+    
+    return random.choice(GENERAL_RESPONSES)
+
+def handle_message(update: Update, context: CallbackContext) -> None:
+    user_text = update.message.text
+    response = generate_response(user_text)
+    update.message.reply_text(response)
+
+def daily_question(context: CallbackContext) -> None:
+    question = "Доброе утро! Как ваше настроение сегодня?"
+    for chat_id in user_chats.copy():
+        try:
+            context.bot.send_message(chat_id=chat_id, text=question)
+        except Exception as e:
+            logger.warning(f"Не удалось отправить сообщение {chat_id}: {e}")
